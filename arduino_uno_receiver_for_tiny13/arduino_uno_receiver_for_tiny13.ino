@@ -4,7 +4,7 @@
 
 RCSwitch mySwitch = RCSwitch();
 unsigned long valueold;
-
+unsigned long i=0;
 
 
 
@@ -17,12 +17,15 @@ void setup() {
 
 void loop() {
   
- 
+
 unsigned long currentMillis = millis(); // текущий счетчик
 
   if (mySwitch.available()) {
+    i++;
     unsigned long valuesend = mySwitch.getReceivedValue();
-    Serial.print("Received data -> ");
+    Serial.print("Received data #");
+    Serial.print(i);
+    Serial.print(" -->");
     Serial.println((unsigned int)valuesend);
     Serial.print("temp is ");
     Serial.println(((unsigned int)valuesend - 11500) / 10.0);
@@ -30,9 +33,6 @@ unsigned long currentMillis = millis(); // текущий счетчик
     
     
   }
+  delay(500);
   //mySwitch.resetAvailable();
   }
-
-
-
-

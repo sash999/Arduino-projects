@@ -2,7 +2,7 @@
 ds18b20
  */
 #define F_CPU 1200000UL
-#define timer 1 // время в секундах (умноженное на 5) опрос и отправка данных с датчика.
+#define timer 2 // время в секундах (умноженное на 5) опрос и отправка данных с датчика.
 #define periodusec 400 // mcs
 #define DS_BIT         4 // pin 3
 #define RC_BIT         3 // pin 2
