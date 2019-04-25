@@ -9,10 +9,10 @@ unsigned long i=0;
 void setup() {
 
 Serial.begin(9600);
-mySwitch.enableReceive(0); // включаем прием на 2 выводе (прерывание 0)
+mySwitch.enableReceive(0); // включаем прием на 2 выводе (прерывание 0) !! у lolin nodemcu это D3 !!
 
 
-Wire.begin(D6, D5); // LCD1602 SCL on D1, SDA on D2
+Wire.begin(D6, D5); // LCD1602 SCL on D5, SDA on D6
 
 lcd.init();
 lcd.backlight();
