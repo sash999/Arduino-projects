@@ -12,7 +12,7 @@
 #include <util/delay.h>
 #include <avr/sleep.h>
 
-#define LED_BIT _BV(PB3)
+#define LED_BIT _BV(PB4)
 
 int main()
 {
@@ -38,4 +38,3 @@ int main()
 
   
 }
-
