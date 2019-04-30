@@ -43,9 +43,9 @@ void loop() {
     lcd.print(((unsigned int)valuesend - 11500) / 10.0);
  
     
-    
+  mySwitch.resetAvailable();  
   }
-  delay(5000);
+  delay(1000);
   
   
   
