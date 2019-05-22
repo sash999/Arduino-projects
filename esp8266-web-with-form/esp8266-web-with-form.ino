@@ -7,6 +7,8 @@
 #include <ESP8266WebServer.h>
 #include <FS.h>
 
+#define DEBUG true // писать ли дебаг в сериал
+
 //const char MAIN_page[] PROGMEM = R"=====(
 const char MAIN_page[] = R"=====(
 <!DOCTYPE html>
@@ -28,6 +30,8 @@ const char MAIN_page[] = R"=====(
   <br>
   Password:<br>
   <input type="text" name="password" value="Введите пароль">
+  <br>
+  <input type="text" name="deep_sleep_time" value="1800e6">
   <br><br>
   <input type="submit" value="Сохранить">
 </form> 
@@ -36,38 +40,40 @@ const char MAIN_page[] = R"=====(
 </html>
 )=====";
 
-//SSID and Password of your WiFi router
-const char* ssid = "YourSSID";
-const char* password = "YourPassword";
+
 
 //SSID and Password of your ESP as AP
 const char* ssid_ap = "esp12-www";
 const char* password_ap = "1qaz!QAZ";
 
+//файлы конфигурации
+const char* ssid_file = "/ssid.cfg";
+
 
 ESP8266WebServer server(80); //Server on port 80
 
-//===============================================================
-// This routine is executed when you open its IP in browser
-//===============================================================
 void handleRoot() {
  String s = MAIN_page; //Read HTML contents
  server.send(200, "text/html", s); //Send web page
 }
-//===============================================================
-// This routine is executed when you press submit
-//===============================================================
+
 void handleForm() {
- String firstName = server.arg("firstname"); 
- String lastName = server.arg("lastname"); 
+ String ssid = server.arg("ssid"); 
+ String password = server.arg("password"); 
+ String deep_sleep_time = server.arg("deep_sleep_time"); 
+ if(DEBUG) {
+ Serial.print("SSID received from form is:");
+ Serial.println(ssid);
 
- Serial.print("First Name:");
- Serial.println(firstName);
+ Serial.print("Password received from form is:");
+ Serial.println(password);
 
- Serial.print("Last Name:");
- Serial.println(lastName);
- 
- String s = "<a href='/'> Go Back </a>";
+ Serial.print("deep_sleep_time received from form is:");
+ Serial.println(deep_sleep_time);
+ }
+ String s = "SSID is: " + ssid +"<br>Password is: " + password + "<br><br><h2>RELOAD MCU TO APPLY CHANGES</h2>";
+ //String s = "<h2>RELOAD MCU TO APPLY CHANGES</h2>";
+ //String s = "<a href='/'> Go Back </a>";
  server.send(200, "text/html", s); //Send web page
 }
 //==============================================================
@@ -75,6 +81,16 @@ void handleForm() {
 //==============================================================
 void setup(void){
   Serial.begin(9600);
+
+if(SPIFFS.begin() && DEBUG)
+  {
+    Serial.println("SPIFFS Initialize....ok");
+  }
+  else if(DEBUG)
+  {
+    Serial.println("SPIFFS Initialization...failed");
+  }
+
 
 /*
   WiFi.begin(ssid, password);     //Connect to your WiFi router
@@ -96,11 +112,13 @@ void setup(void){
 */
   WiFi.softAP(ssid_ap, password_ap);
   delay(500);
-  server.on("/", handleRoot);      //Which routine to handle at root location
-  server.on("/action_page", handleForm); //form action is handled here
+  server.on("/", handleRoot);     
+  server.on("/action_page", handleForm); 
 
-  server.begin();                  //Start server
-  Serial.println("HTTP server started");
+  server.begin(); 
+  if(DEBUG) {                
+   Serial.println("HTTP server started");
+  }
 }
 //==============================================================
 //                     LOOP
