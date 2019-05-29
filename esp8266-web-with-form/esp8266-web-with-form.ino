@@ -6,11 +6,16 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
+//#include <string.h>
 
-#define DEBUG true // писать ли дебаг в сериал
+#define DEBUG true                // писать ли дебаг в сериал
+#define BLINK true                // мигать ли светодиодом
+#define LED_BUILTIN 2             // В esp-12 встроенный светодиод на gpio2
+#define LED_ON 0                  // и он инверсный
+#define LED_OFF 1                 //
 
-//const char MAIN_page[] PROGMEM = R"=====(
-const char MAIN_page[] = R"=====(
+
+const char* HTML_header = R"=====(
 <!DOCTYPE html>
 <html>
 <head>
@@ -20,24 +25,32 @@ const char MAIN_page[] = R"=====(
    </style>
 </head>
 <body>
+)=====";
 
-<h2>ESP12-WWW<h2>
-<h3>Настройка параметров доступа к домашней сети</h3>
+const char * HTML_footer = R"=====(
+</body>
+</html>
+)=====";
+
+const char PAGE_header[] = R"=====(
+<h2>ESP12-WWW</h2>
+Настройка параметров доступа к домашней сети<br>
+
+)=====";
+const char PAGE_form[] = R"=====(
 
 <form action="/action_page">
   SSID:<br>
-  <input type="text" name="ssid" value="Введите SSID">
+  <input type="text" name="ssid" value="">
   <br>
   Password:<br>
-  <input type="text" name="password" value="Введите пароль">
+  <input type="text" name="password" value="">
   <br>
-  <input type="text" name="deep_sleep_time" value="1800e6">
+  Deep sleep time:<br>
+  <input type="text" name="deep_sleep_time" value="">
   <br><br>
   <input type="submit" value="Сохранить">
 </form> 
-
-</body>
-</html>
 )=====";
 
 
@@ -46,41 +59,163 @@ const char MAIN_page[] = R"=====(
 const char* ssid_ap = "esp12-www";
 const char* password_ap = "1qaz!QAZ";
 
-//файлы конфигурации
-const char* ssid_file = "/ssid.cfg";
+//файл с настройками
+const char* config_file = "/config.txt";
+
+struct mcu_config {
+  String ssid;
+  String pw;  //password
+  String dst; //deep sleep time 
+};
+
+ESP8266WebServer server(80); 
+
+void DoBlink(int count, int intervalHigh, int intervalLow) {
+  if(!BLINK) return;
+  for (int i=count; i>0; i--) {
+    digitalWrite(LED_BUILTIN, LED_ON);
+    delay(intervalHigh);
+    digitalWrite(LED_BUILTIN, LED_OFF);
+    delay(intervalLow);
+  }
+}
 
 
-ESP8266WebServer server(80); //Server on port 80
+mcu_config read_config(const char* config_file) {
+ mcu_config config; 
+ File f = SPIFFS.open(config_file, "r");
+
+ if (!f) {
+    Serial.println("file open failed");
+    DoBlink(3,500,500);
+  }
+  else
+  {
+      // Читаем три строки
+      config.ssid = f.readStringUntil('\n');
+      config.pw = f.readStringUntil('\n');
+      config.dst = f.readStringUntil('\n');
+      f.close();  
+   }
+  return config;
+}
+
+void write_config(const char* config_file, mcu_config config) {
+  File f = SPIFFS.open(config_file, "w");
+  
+  if (!f) {
+    Serial.println("file open failed");
+    DoBlink(3,500,500);
+  }
+  else
+  {
+      
+      f.print(config.ssid);
+      f.write('\n');
+      f.print(config.pw);
+      f.write('\n');
+      f.print(config.dst);
+      f.write('\n');
+      f.close();  
+  }
+
+  return;
+}
+
 
 void handleRoot() {
- String s = MAIN_page; //Read HTML contents
- server.send(200, "text/html", s); //Send web page
+mcu_config config = read_config(config_file);   
+
+  
+  
+ if(DEBUG) Serial.print("Client connected.");
+/*
+File f = SPIFFS.open(config_file, "r");
+  
+  if (!f) {
+    Serial.println("file open failed");
+  }
+  else
+  {
+      Serial.println("Reading Data from File:");
+      // Читаем три строки
+      config.ssid = f.readStringUntil('\n');
+      config.pw = f.readStringUntil('\n');
+      config.dst = f.readStringUntil('\n');
+      Serial.println(config.ssid);
+      Serial.println(config.pw); 
+      Serial.println(config.dst); 
+      f.close();  //Close file
+      Serial.println("File Closed");
+  }
+ */
+ String s1 = HTML_header;
+ 
+ String s2 = PAGE_header;
+
+ String s3 = "<h3>Текущие настройки:</h3> SSID : " + config.ssid + "<br>  Password : " +config.pw + "<br>DeepSleep time : " \
+              + config.dst + "<br><br><h3>Новые настройки:</h3>";
+ 
+ String s4 = PAGE_form;
+ String s5 = HTML_footer;
+ 
+ server.send(200, "text/html", s1+s2+s3+s4+s5); 
+ 
 }
 
 void handleForm() {
- String ssid = server.arg("ssid"); 
- String password = server.arg("password"); 
- String deep_sleep_time = server.arg("deep_sleep_time"); 
+ mcu_config config; 
+ config.ssid = server.arg("ssid"); 
+ config.pw = server.arg("password"); 
+ config.dst = server.arg("deep_sleep_time");
+ 
  if(DEBUG) {
  Serial.print("SSID received from form is:");
- Serial.println(ssid);
+ Serial.println(config.ssid);
 
  Serial.print("Password received from form is:");
- Serial.println(password);
+ Serial.println(config.pw);
 
  Serial.print("deep_sleep_time received from form is:");
- Serial.println(deep_sleep_time);
+ Serial.println(config.dst);
+
  }
- String s = "SSID is: " + ssid +"<br>Password is: " + password + "<br><br><h2>RELOAD MCU TO APPLY CHANGES</h2>";
- //String s = "<h2>RELOAD MCU TO APPLY CHANGES</h2>";
- //String s = "<a href='/'> Go Back </a>";
- server.send(200, "text/html", s); //Send web page
+ String s1 = HTML_header;
+ String s2 = "Сохранено в SPIFFS:<br><br>SSID : " + config.ssid + "<br>Password : " + config.pw + "<br>DeepSleep time : " \
+              + config.dst + "<br><br><h2>ПЕРЕЗАГРУЗИТЕ МИКРОКОНТРОЛЛЕР ЧТОБЫ ПРИМЕНИТЬ</h2>";
+ String s3 = HTML_footer;
+
+ write_config(config_file, config);
+ server.send(200, "text/html", s1+s2+s3); //Send web page
+ /*
+ File f = SPIFFS.open(config_file, "w");
+  
+  if (!f) {
+    Serial.println("file open failed");
+    DoBlink(3,500,500);
+  }
+  else
+  {
+      //Write data to file
+      Serial.println("Writing Data to File");
+      f.print(ssid);
+      f.write('\n');
+      f.print(password);
+      f.write('\n');
+      f.print(deep_sleep_time);
+      f.write('\n');
+      f.close();  //Close file
+  }
+*/
+ 
 }
 //==============================================================
 //                  SETUP
 //==============================================================
 void setup(void){
   Serial.begin(9600);
+   pinMode(LED_BUILTIN, OUTPUT);
+   DoBlink(5,200,200);
 
 if(SPIFFS.begin() && DEBUG)
   {
@@ -89,6 +224,7 @@ if(SPIFFS.begin() && DEBUG)
   else if(DEBUG)
   {
     Serial.println("SPIFFS Initialization...failed");
+    DoBlink(10,300,300);
   }
 
 
@@ -118,7 +254,7 @@ if(SPIFFS.begin() && DEBUG)
   server.begin(); 
   if(DEBUG) {                
    Serial.println("HTTP server started");
-  }
+    }
 }
 //==============================================================
 //                     LOOP
