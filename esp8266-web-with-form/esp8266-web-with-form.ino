@@ -6,13 +6,7 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
-//#include <string.h>
-
-#define DEBUG true                // писать ли дебаг в сериал
-#define BLINK true                // мигать ли светодиодом
-#define LED_BUILTIN 2             // В esp-12 встроенный светодиод на gpio2
-#define LED_ON 0                  // и он инверсный
-#define LED_OFF 1                 //
+#include "config.h"
 
 
 const char* HTML_header = R"=====(
@@ -55,18 +49,7 @@ const char PAGE_form[] = R"=====(
 
 
 
-//SSID and Password of your ESP as AP
-const char* ssid_ap = "esp12-www";
-const char* password_ap = "1qaz!QAZ";
 
-//файл с настройками
-const char* config_file = "/config.txt";
-
-struct mcu_config {
-  String ssid;
-  String pw;  //password
-  String dst; //deep sleep time 
-};
 
 ESP8266WebServer server(80); 
 
@@ -86,8 +69,7 @@ mcu_config read_config(const char* config_file) {
  File f = SPIFFS.open(config_file, "r");
 
  if (!f) {
-    Serial.println("file open failed");
-    DoBlink(3,500,500);
+    DoBlink(3,1500,500);
   }
   else
   {
@@ -104,8 +86,7 @@ void write_config(const char* config_file, mcu_config config) {
   File f = SPIFFS.open(config_file, "w");
   
   if (!f) {
-    Serial.println("file open failed");
-    DoBlink(3,500,500);
+    DoBlink(3,1500,500);
   }
   else
   {
@@ -122,101 +103,55 @@ void write_config(const char* config_file, mcu_config config) {
   return;
 }
 
-
 void handleRoot() {
-mcu_config config = read_config(config_file);   
-
-  
-  
- if(DEBUG) Serial.print("Client connected.");
-/*
-File f = SPIFFS.open(config_file, "r");
-  
-  if (!f) {
-    Serial.println("file open failed");
-  }
-  else
-  {
-      Serial.println("Reading Data from File:");
-      // Читаем три строки
-      config.ssid = f.readStringUntil('\n');
-      config.pw = f.readStringUntil('\n');
-      config.dst = f.readStringUntil('\n');
-      Serial.println(config.ssid);
-      Serial.println(config.pw); 
-      Serial.println(config.dst); 
-      f.close();  //Close file
-      Serial.println("File Closed");
-  }
- */
  String s1 = HTML_header;
+ String s2 = "";
+ String s3 = "<h3>Заглушка для основной страницы нормального режима</h3>";
+ String s4 = "";
+ String s5 = HTML_footer;
  
- String s2 = PAGE_header;
+ server.send(200, "text/html", s1+s2+s3+s4+s5); 
+}
 
+void handleConfigRoot() {
+ mcu_config config = read_config(config_file);   
+ DoBlink(3,200,100);
+ 
+ String s1 = HTML_header;
+ String s2 = PAGE_header;
  String s3 = "<h3>Текущие настройки:</h3> SSID : " + config.ssid + "<br>  Password : " +config.pw + "<br>DeepSleep time : " \
               + config.dst + "<br><br><h3>Новые настройки:</h3>";
- 
  String s4 = PAGE_form;
  String s5 = HTML_footer;
  
  server.send(200, "text/html", s1+s2+s3+s4+s5); 
- 
 }
 
-void handleForm() {
+void handleConfigForm() {
  mcu_config config; 
  config.ssid = server.arg("ssid"); 
  config.pw = server.arg("password"); 
  config.dst = server.arg("deep_sleep_time");
  
- if(DEBUG) {
- Serial.print("SSID received from form is:");
- Serial.println(config.ssid);
-
- Serial.print("Password received from form is:");
- Serial.println(config.pw);
-
- Serial.print("deep_sleep_time received from form is:");
- Serial.println(config.dst);
-
- }
  String s1 = HTML_header;
  String s2 = "Сохранено в SPIFFS:<br><br>SSID : " + config.ssid + "<br>Password : " + config.pw + "<br>DeepSleep time : " \
               + config.dst + "<br><br><h2>ПЕРЕЗАГРУЗИТЕ МИКРОКОНТРОЛЛЕР ЧТОБЫ ПРИМЕНИТЬ</h2>";
  String s3 = HTML_footer;
 
  write_config(config_file, config);
- server.send(200, "text/html", s1+s2+s3); //Send web page
- /*
- File f = SPIFFS.open(config_file, "w");
-  
-  if (!f) {
-    Serial.println("file open failed");
-    DoBlink(3,500,500);
-  }
-  else
-  {
-      //Write data to file
-      Serial.println("Writing Data to File");
-      f.print(ssid);
-      f.write('\n');
-      f.print(password);
-      f.write('\n');
-      f.print(deep_sleep_time);
-      f.write('\n');
-      f.close();  //Close file
-  }
-*/
+ server.send(200, "text/html", s1+s2+s3); 
  
 }
+
 //==============================================================
 //                  SETUP
 //==============================================================
 void setup(void){
+  
   Serial.begin(9600);
    pinMode(LED_BUILTIN, OUTPUT);
    DoBlink(5,200,200);
-
+   
 if(SPIFFS.begin() && DEBUG)
   {
     Serial.println("SPIFFS Initialize....ok");
@@ -227,34 +162,51 @@ if(SPIFFS.begin() && DEBUG)
     DoBlink(10,300,300);
   }
 
+  mcu_config config = read_config(config_file);  
 
-/*
-  WiFi.begin(ssid, password);     //Connect to your WiFi router
-  Serial.println("");
 
+  WiFi.begin(config.ssid, config.pw);  
+  if(DEBUG) {   
+    Serial.print("Attempting to connect to ");
+    Serial.println(config.ssid);
+    Serial.print("with password ");
+    Serial.println(config.pw);
+   }
   // Wait for connection
-  while (WiFi.status() != WL_CONNECTED) {
+  int waittime = 0;
+  while (WiFi.status() != WL_CONNECTED && waittime < WAIT_TIME) {
     delay(500);
-    Serial.print(".");
+    waittime += 500;
+    if(DEBUG) Serial.print(".");
   }
-
+  if (WiFi.status() == WL_CONNECTED) {
   //If connection successful show IP address in serial monitor
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println("WiFi");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());  //IP address assigned to your ESP
- 
-*/
+  if(DEBUG) {
+    Serial.println("");
+    Serial.print("Connected to ");
+    Serial.println("WiFi");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());  
+  }
+  server.on("/", handleRoot);     
+  } else {
+  //bring up our own access point 
+  if(DEBUG) Serial.println("\nConnect failed.\nBringing up our own AP.");
+  WiFi.disconnect(true);
   WiFi.softAP(ssid_ap, password_ap);
   delay(500);
-  server.on("/", handleRoot);     
-  server.on("/action_page", handleForm); 
-
+  if(DEBUG) {
+    Serial.print("IP address: ");
+    Serial.println(WiFi.softAPIP());
+   }  
+   server.on("/", handleConfigRoot);
+   server.on("/action_page", handleConfigForm); 
+  }
+  
+  
   server.begin(); 
-  if(DEBUG) {                
-   Serial.println("HTTP server started");
-    }
+  if(DEBUG) Serial.println("HTTP server started");
+    
 }
 //==============================================================
 //                     LOOP
