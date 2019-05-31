@@ -6,51 +6,15 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
+#include <LiquidCrystal_I2C.h>
+#include <Wire.h>
 #include "config.h"
-
-
-const char* HTML_header = R"=====(
-<!DOCTYPE html>
-<html>
-<head>
-   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-   <style>
-    body {background: silver;} 
-   </style>
-</head>
-<body>
-)=====";
-
-const char * HTML_footer = R"=====(
-</body>
-</html>
-)=====";
-
-const char PAGE_header[] = R"=====(
-<h2>ESP12-WWW</h2>
-Настройка параметров доступа к домашней сети<br>
-
-)=====";
-const char PAGE_form[] = R"=====(
-
-<form action="/action_page">
-  SSID:<br>
-  <input type="text" name="ssid" value="">
-  <br>
-  Password:<br>
-  <input type="text" name="password" value="">
-  <br>
-  Deep sleep time:<br>
-  <input type="text" name="deep_sleep_time" value="">
-  <br><br>
-  <input type="submit" value="Сохранить">
-</form> 
-)=====";
+#include "html_pages.h"
 
 
 
 
-
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 ESP8266WebServer server(80); 
 
 void DoBlink(int count, int intervalHigh, int intervalLow) {
@@ -115,7 +79,6 @@ void handleRoot() {
 
 void handleConfigRoot() {
  mcu_config config = read_config(config_file);   
- DoBlink(3,200,100);
  
  String s1 = HTML_header;
  String s2 = PAGE_header;
@@ -148,9 +111,18 @@ void handleConfigForm() {
 //==============================================================
 void setup(void){
   
-  Serial.begin(9600);
+   Serial.begin(9600);
+   Wire.begin(D6, D5); // LCD1602 SCL on D5, SDA on D6
    pinMode(LED_BUILTIN, OUTPUT);
+   
+   lcd.init();
+   lcd.backlight();
+   lcd.home();
+   lcd.print("NodeMCU");
+   lcd.setCursor(0,1);
+   lcd.print("   base station   ");
    DoBlink(5,200,200);
+   
    
 if(SPIFFS.begin() && DEBUG)
   {
@@ -174,9 +146,14 @@ if(SPIFFS.begin() && DEBUG)
    }
   // Wait for connection
   int waittime = 0;
+  lcd.clear();
+  lcd.home();
+  lcd.print("Connecting");
+  lcd.setCursor(0,1);
   while (WiFi.status() != WL_CONNECTED && waittime < WAIT_TIME) {
-    delay(500);
-    waittime += 500;
+    delay(1000);
+    waittime += 1000;
+    lcd.print(".");
     if(DEBUG) Serial.print(".");
   }
   if (WiFi.status() == WL_CONNECTED) {
@@ -188,6 +165,11 @@ if(SPIFFS.begin() && DEBUG)
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());  
   }
+  lcd.clear();
+  lcd.home();
+  lcd.print("NodeMCU ready");
+  lcd.setCursor(0,1);
+  lcd.print(WiFi.localIP());
   server.on("/", handleRoot);     
   } else {
   //bring up our own access point 
@@ -199,6 +181,11 @@ if(SPIFFS.begin() && DEBUG)
     Serial.print("IP address: ");
     Serial.println(WiFi.softAPIP());
    }  
+  lcd.clear();
+  lcd.home();
+  lcd.print("   SETUP MODE   ");
+  lcd.setCursor(0,1);
+  lcd.print(WiFi.softAPIP());
    server.on("/", handleConfigRoot);
    server.on("/action_page", handleConfigForm); 
   }
