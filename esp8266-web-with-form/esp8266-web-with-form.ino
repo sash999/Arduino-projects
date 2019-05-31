@@ -3,18 +3,23 @@
  * <a href="https://circuits4you.com">https://circuits4you.com</a>
  */
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
+//#include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
+#include <RCSwitch.h>
 #include "config.h"
 #include "html_pages.h"
 
 
 
-
+bool setup_mode; // true если мы находимся в режиме настройки параметров
 LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+RCSwitch mySwitch = RCSwitch();
+unsigned long i=0;
+
 ESP8266WebServer server(80); 
 
 void DoBlink(int count, int intervalHigh, int intervalLow) {
@@ -50,11 +55,10 @@ void write_config(const char* config_file, mcu_config config) {
   File f = SPIFFS.open(config_file, "w");
   
   if (!f) {
-    DoBlink(3,1500,500);
-  }
+       DoBlink(3,1500,500);
+          }
   else
   {
-      
       f.print(config.ssid);
       f.write('\n');
       f.print(config.pw);
@@ -67,17 +71,8 @@ void write_config(const char* config_file, mcu_config config) {
   return;
 }
 
-void handleRoot() {
- String s1 = HTML_header;
- String s2 = "";
- String s3 = "<h3>Заглушка для основной страницы нормального режима</h3>";
- String s4 = "";
- String s5 = HTML_footer;
- 
- server.send(200, "text/html", s1+s2+s3+s4+s5); 
-}
 
-void handleConfigRoot() {
+void handleRoot() {
  mcu_config config = read_config(config_file);   
  
  String s1 = HTML_header;
@@ -114,6 +109,7 @@ void setup(void){
    Serial.begin(9600);
    Wire.begin(D6, D5); // LCD1602 SCL on D5, SDA on D6
    pinMode(LED_BUILTIN, OUTPUT);
+   mySwitch.enableReceive(0); // включаем прием на 2 выводе (прерывание 0) !! у lolin nodemcu это D3 !!
    
    lcd.init();
    lcd.backlight();
@@ -170,7 +166,7 @@ if(SPIFFS.begin() && DEBUG)
   lcd.print("NodeMCU ready");
   lcd.setCursor(0,1);
   lcd.print(WiFi.localIP());
-  server.on("/", handleRoot);     
+  setup_mode = false;   
   } else {
   //bring up our own access point 
   if(DEBUG) Serial.println("\nConnect failed.\nBringing up our own AP.");
@@ -186,18 +182,43 @@ if(SPIFFS.begin() && DEBUG)
   lcd.print("   SETUP MODE   ");
   lcd.setCursor(0,1);
   lcd.print(WiFi.softAPIP());
-   server.on("/", handleConfigRoot);
+
+   setup_mode = true;
+   server.on("/", handleRoot);
    server.on("/action_page", handleConfigForm); 
+   }
+  
+  if(setup_mode) {
+   server.begin(); 
+   if(DEBUG) Serial.println("HTTP server started");
   }
-  
-  
-  server.begin(); 
-  if(DEBUG) Serial.println("HTTP server started");
     
 }
 //==============================================================
 //                     LOOP
 //==============================================================
 void loop(void){
-  server.handleClient();          //Handle client requests
+  if(setup_mode) server.handleClient();          //
+// прием данных от удаленных датчиков 433mhz
+ if (mySwitch.available()) {
+    lcd.clear();
+    i++;
+    unsigned long valuesend = mySwitch.getReceivedValue();
+    Serial.print("Received data #");
+    Serial.print(i);
+    Serial.print(" -->");
+    Serial.println((unsigned int)valuesend);
+    Serial.print("temp is ");
+    Serial.println(((unsigned int)valuesend - 11500) / 10.0);
+    lcd.setCursor(0,0);
+    lcd.print(i);
+    lcd.setCursor(0,1);
+    lcd.print(((unsigned int)valuesend - 11500) / 10.0);
+   
+  mySwitch.resetAvailable();  
+  }
+  
+  delay(1000);
+  Serial.println("loop 1 sec");
+  if(setup_mode && DEBUG) Serial.println("---SETUP MODE---");
 }
