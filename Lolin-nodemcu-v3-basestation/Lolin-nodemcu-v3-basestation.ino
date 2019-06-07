@@ -18,7 +18,7 @@ lcd.init();
 lcd.backlight();
 
 lcd.home();
-
+lcd.clear();
 lcd.print("NodeMCU");
 lcd.setCursor(0,1);
 lcd.print("   base station   ");

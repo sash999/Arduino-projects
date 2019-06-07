@@ -19,7 +19,7 @@ int main()
  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
  DDRB |= LED_BIT; // OUTPUT
 
-  for (int i=10; i>0; i--)
+  for (int i=3; i>0; i--)
   {
     PORTB |= LED_BIT; // HIGH
     _delay_ms(1000);
@@ -31,7 +31,7 @@ int main()
  while(1)
  {
    PORTB |= LED_BIT; // HIGH
-    _delay_ms(100);
+    _delay_ms(300);
     PORTB &= ~LED_BIT; // LOW
     _delay_ms(100);
  }
