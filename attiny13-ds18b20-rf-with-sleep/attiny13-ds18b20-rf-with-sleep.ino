@@ -2,6 +2,7 @@
 ds18b20
  */
 #define F_CPU 1200000UL
+
 #define timer 2 // время в секундах (умноженное на 5) опрос и отправка данных с датчика.
 #define periodusec 400 // mcs
 #define DS_BIT         4 // pin 3
@@ -13,6 +14,9 @@ ds18b20
 #include <avr/wdt.h> // здесь организована работа с ватчдогом
 #include <avr/sleep.h> // здесь описаны режимы сна
 #include <avr/interrupt.h> // работа с прерываниями
+
+
+volatile uint8_t i2;
 
 void sendRC(unsigned long data) { // Отправка данных по радиоканалу RCswitch. Двоичный протокол
 
@@ -166,12 +170,23 @@ int ReadDS(void) {
      return(TReading);
 }
 
+
+ISR (WDT_vect) {
+   if ((++i2) == 10) {
+    int DStemp = ReadDS();
+    sendRC(((6 * DStemp) + DStemp / 4)/10+500+keyT); // отправляем данные
+    i2=0;
+    
+   }
+   WDTCR |= (1<<WDTIE); // разрешаем прерывания по ватчдогу. Иначе будет резет.
+}   
 //------------------------------------------------
 //-----------------Main программа-----------------
 //------------------------------------------------
 int __attribute__((noreturn)) main(void)
 {
-  uint8_t delay_counter=0;
+  //uint8_t delay_counter=0;
+  i2=0;
 
 
     // установка режима для ds
@@ -180,56 +195,10 @@ int __attribute__((noreturn)) main(void)
     DDRB &= ~_BV(DS_BIT);
 
 
-    for(;;){                /* main event loop */
 
-
-    _delay_ms(500); 
-
-    
-    if (delay_counter==0) {
-
-      delay_counter=timer;
-
-   // ds              
- /*      
-  uint8_t SignBit;
-  uint8_t DSdata[2];
-  
-  
-     OneWireReset();
-     OneWireOutByte(0xcc);
-     OneWireOutByte(0x44);
-     
-       PORTB |= _BV(DS_BIT);
-       DDRB |= _BV(DS_BIT);
-       //delay(3000); // если хотим ждать когда датчик посчитает температуру.
-       DDRB &= ~_BV(DS_BIT);
-       PORTB &= ~_BV(DS_BIT);
-     
-     
-     OneWireReset();
-     OneWireOutByte(0xcc);
-     OneWireOutByte(0xbe);
-
-     DSdata[0] = OneWireInByte(); 
-     DSdata[1] = OneWireInByte();
-      
-
-  int TReading = (int)(DSdata[1] << 8) + DSdata[0];
-  
-     SignBit = TReading & 0x8000; 
-     if (SignBit) TReading = (TReading ^ 0xffff) + 1;
-     
-     sendRC(((6 * TReading) + TReading / 4)/10+500+keyT); // отправляем данные
-*/
-   int DStemp = ReadDS();
-   sendRC(((6 * DStemp) + DStemp / 4)/10+500+keyT); // отправляем данные
-
-    }
-        delay_counter--;
 
         wdt_reset(); // сбрасываем
-        wdt_enable(WDTO_8S); // разрешаем ватчдог 8 сек
+        wdt_enable(WDTO_1S); // разрешаем ватчдог 1 сек
         WDTCR |= (1<<WDTIE); // разрешаем прерывания по ватчдогу. Иначе будет резет.
         sei(); // разрешаем прерывания
 
@@ -241,4 +210,3 @@ int __attribute__((noreturn)) main(void)
         
     }
     
-}

@@ -199,21 +199,24 @@ if(SPIFFS.begin() && DEBUG)
 //==============================================================
 void loop(void){
   if(setup_mode) server.handleClient();          //
-// прием данных от удаленных датчиков 433mhz
+  // прием данных от удаленных датчиков 433mhz
  if (mySwitch.available()) {
     lcd.clear();
     i++;
     unsigned long valuesend = mySwitch.getReceivedValue();
-    Serial.print("Received data #");
-    Serial.print(i);
-    Serial.print(" -->");
-    Serial.println((unsigned int)valuesend);
-    Serial.print("temp is ");
-    Serial.println(((unsigned int)valuesend - 11500) / 10.0);
+    float t_ds18b20 = ((int)valuesend - 11500) / 10.00; // температура с датчика ds18b20, полученная по радиоканалу
+    if(DEBUG) {
+     Serial.print("Received data #");
+     Serial.print(i);
+     Serial.print(" -->");
+     Serial.println((int)valuesend);
+     Serial.print("t_ds18b20 is ");
+     Serial.println(t_ds18b20);
+    }
     lcd.setCursor(0,0);
     lcd.print(i);
     lcd.setCursor(0,1);
-    lcd.print(((unsigned int)valuesend - 11500) / 10.0);
+    lcd.print(t_ds18b20);
    
   mySwitch.resetAvailable();  
   }

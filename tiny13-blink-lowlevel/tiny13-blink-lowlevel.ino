@@ -10,31 +10,31 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
-#include <avr/sleep.h>
+#include <avr/wdt.h> // здесь организована работа с ватчдогом
+#include <avr/sleep.h> // здесь описаны режимы сна
+#include <avr/interrupt.h> // работа с прерываниями
 
-#define LED_BIT _BV(PB4)
+#define LED_BIT _BV(PB3)
 
 int main()
 {
  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
  DDRB |= LED_BIT; // OUTPUT
+ 
+        wdt_reset(); // сбрасываем
+        wdt_enable(WDTO_2S); // разрешаем ватчдог 2 сек
+        WDTCR |= (1<<WDTIE); // разрешаем прерывания по ватчдогу. Иначе будет резет.
+        sei(); // разрешаем прерывания
 
-  for (int i=3; i>0; i--)
-  {
-    PORTB |= LED_BIT; // HIGH
-    _delay_ms(1000);
-    PORTB &= ~LED_BIT; // LOW
-    _delay_ms(1000);
-  }
- // sleep_enable();
- // sleep_cpu();
- while(1)
- {
-   PORTB |= LED_BIT; // HIGH
-    _delay_ms(300);
-    PORTB &= ~LED_BIT; // LOW
-    _delay_ms(100);
- }
+        set_sleep_mode(SLEEP_MODE_PWR_DOWN); // если спать - то на полную
+        while(1) {
+                sleep_enable(); // разрешаем сон
+                sleep_cpu(); // спать!
+                PORTB ^= LED_BIT; // HIGH
+                
+        }
+  
+ 
 
   
 }
