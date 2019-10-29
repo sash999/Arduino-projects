@@ -8,13 +8,9 @@
 
 //ADC_MODE(ADC_VCC); //АЦП цепляем к VCC а не к ADC0 (чтобы измерять напряжение на шине)
 
-/*
-const char* ssid = "TP_SMALL";
-const char* password = "2wsx@WSX";
-*/
 
-const char* ssid = "KeeUltra";
-const char* password = "218#$rRhj1";
+const char* ssid = "xxxxx";
+const char* password = "xxxxx";
 
 
 const char* host = "narodmon.ru";
